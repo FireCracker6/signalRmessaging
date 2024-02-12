@@ -4,9 +4,11 @@ export interface Message {
     jobAssigneeMessageId?: number;
     id?: string;
     conversationId: string;
+    senderName?: string;
     messageContent: string;
-    message: string;
+    message?: string;
     parentMessageId?: string;
+    timestamp?: Date | string | null;
 }
 
 export interface MessageState {

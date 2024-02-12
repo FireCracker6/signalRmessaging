@@ -23,7 +23,7 @@ function App() {
         />
         <Route
           path="/messageList/:conversationId"
-          element={<MessageList currentConversationId={conversationid} />}
+          element={<MessageList setCurrentConversationId={setCurrentConversationId} />}
         />
       </Routes>
  

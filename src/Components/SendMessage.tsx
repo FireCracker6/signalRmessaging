@@ -1,124 +1,77 @@
-// import { useEffect, useState } from "react"
-// import { signalRService } from "../Redux/Services/signalRService";
-// import { Message, MessageState, addMessage, setCurrentConversationId } from "../Redux/Store/messageSlice";
-// import { useNavigate, useParams } from "react-router-dom";
-// import { useDispatch, useSelector } from "react-redux";
-// import { persistor, store } from "../Redux/Store/store";
 
 
-// interface RouteParams {
-//     [key: string]: string;
-//   }
+// import { useEffect, useState } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+// import { useParams } from 'react-router-dom';
 
-//   interface SendMessageProps {
-//     setCurrentConversationId: (conversationId: string) => void;
-//   }
-//   const SendMessage: React.FC<SendMessageProps> = ({ setCurrentConversationId }) => {
-//     const { conversationId } = useParams();
-//     const [messageContent, setMessageContent] = useState('');
-  
-//     const dispatch = useDispatch();
-//   const navigate = useNavigate();
-//     const messages = useSelector((state: { message: MessageState }) => state.message.messages);
-//     const currentConversationId = useSelector((state: { message: MessageState }) => state.message.conversationid);
-//     console.log(currentConversationId)
+// import { MessageState, Message, addMessage } from '../Redux/Store/messageSlice';
+// import { signalRService } from '../Redux/Services/signalRService';
 
-//     useEffect(() => {
-//       setCurrentConversationId(conversationId ?? '');
-//     }, [conversationId, setCurrentConversationId]);
+// export interface SendMessageProps {
+//   setCurrentConversationId: (conversationId: string) => void;
+// }
 
-    
-  
-//     const sendMessage = async () => {
-//       if (messageContent) {
-//         await signalRService.sendMessage(conversationId ?? '', messageContent);
-    
-//         const myMessage: Message = {
-//           conversationId: conversationId ?? '',
-//           messageContent: messageContent,
-//           message: messageContent
-//         }
-    
-//         dispatch(addMessage(myMessage));
-    
-//         const unsubscribe = store.subscribe(() => {
-//           const messages = store.getState().message.messages;
-//           const newMessageAdded = messages.some(m => m.messageContent === messageContent && m.conversationId === conversationId);
-    
-//           // if (newMessageAdded) {
-//           //   persistor.flush().then(() => {
-//           //     console.log('Persisted state has been flushed to storage.');
-//           //     unsubscribe(); // Unsubscribe to prevent multiple subscriptions
-//           //   });
-//           // }
-//         });
-    
-//       //  navigate('/messageList');
-//         console.log(addMessage(myMessage))
-//         setMessageContent('');
-//       }
-//     };
+// const SendMessage: React.FC<SendMessageProps> = ({ setCurrentConversationId }) => {
+//   const { conversationId } = useParams<{ conversationId: string }>();
+//   const [messageContent, setMessageContent] = useState('');
+//   const dispatch = useDispatch();
+//   const messages = useSelector((state: { message: MessageState }) => state.message.messages);
+// console.log('conversation id from send message', conversationId)
 //   useEffect(() => {
-//   const newMessageAdded = messages.some(m => m.messageContent === messageContent && m.conversationId === conversationId);
+//     setCurrentConversationId(conversationId ?? '');
+//   }, [conversationId, setCurrentConversationId]);
 
-//   if (newMessageAdded) {
-//     persistor.flush().then(() => {
-//       console.log('Persisted state has been flushed to storage.');
-//     });
-//   }
-// }, [messages, messageContent, conversationId]);
-//     return (
-//       <>
-//         <div>
-//           <input 
-//             type="text"
-//             value={messageContent}
-//             onChange={(e) => setMessageContent(e.target.value)}
-//           />
-//           <button onClick={sendMessage}>Send</button>
+//   const sendMessage = async () => {
+//     if (messageContent) {
+//       await signalRService.sendMessage(conversationId ?? '', messageContent);
 
-//           <ul>
-//         {messages.map((message, index) => (
-//             <li key={index}>{message.messageContent}</li>
-//         ))}
-//     </ul>
-//         </div>
-//       </>
-//     )
-//   }
-  
-//   export default SendMessage;
+//       const myMessage: Message = {
+   
+//         conversationId: conversationId ?? '',
+//         messageContent: messageContent,
+//         message: messageContent
+//       }
 
-import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+//       dispatch(addMessage(myMessage));
+//       setMessageContent('');
+//     }
+//   };
+
+//   return (
+//     <div>
+//       <input
+//         type="text"
+//         value={messageContent}
+//         onChange={e => setMessageContent(e.target.value)}
+//       />
+//       <button onClick={sendMessage}>Send Message</button>
+     
+//     </div>
+//   );
+// };
+
+import React, { useState } from 'react';
+import { SendMessageProps, useMessages } from '../Messages/useMessages';
+
 import { useParams } from 'react-router-dom';
-
-import { MessageState, Message, addMessage } from '../Redux/Store/messageSlice';
-import { signalRService } from '../Redux/Services/signalRService';
-
-interface SendMessageProps {
-  setCurrentConversationId: (conversationId: string) => void;
-}
+import { Message, addMessage } from '../Redux/Store/messageSlice';
+import { useDispatch } from 'react-redux';
 
 const SendMessage: React.FC<SendMessageProps> = ({ setCurrentConversationId }) => {
   const { conversationId } = useParams<{ conversationId: string }>();
+  const { sendMessage: send, messages } = useMessages(conversationId ?? '');
   const [messageContent, setMessageContent] = useState('');
   const dispatch = useDispatch();
-  const messages = useSelector((state: { message: MessageState }) => state.message.messages);
-
-  useEffect(() => {
-    setCurrentConversationId(conversationId ?? '');
-  }, [conversationId, setCurrentConversationId]);
 
   const sendMessage = async () => {
     if (messageContent) {
-      await signalRService.sendMessage(conversationId ?? '', messageContent);
+      await send(messageContent);
 
       const myMessage: Message = {
-   
         conversationId: conversationId ?? '',
         messageContent: messageContent,
-        message: messageContent
+        message: messageContent,
+      //  senderName: latestMessage?.senderName
       }
 
       dispatch(addMessage(myMessage));
@@ -128,13 +81,21 @@ const SendMessage: React.FC<SendMessageProps> = ({ setCurrentConversationId }) =
 
   return (
     <div>
-      <input
-        type="text"
-        value={messageContent}
-        onChange={e => setMessageContent(e.target.value)}
+      {/* Display the messages */}
+      {messages.map((message, index) =>
+        <div key={index}>
+          <p><strong>Sender:</strong> {message.senderName}</p>
+          <p><strong>Message:</strong> {message.messageContent}</p>
+        </div>
+      )}
+  
+      {/* Input field to send a new message */}
+      <input 
+        type="text" 
+        value={messageContent} 
+        onChange={(e) => setMessageContent(e.target.value)} 
       />
       <button onClick={sendMessage}>Send Message</button>
-     
     </div>
   );
 };

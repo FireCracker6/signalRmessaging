@@ -1,170 +1,164 @@
+
+
 // import React, { useEffect, useState } from "react";
 // import { useSelector, useDispatch } from "react-redux";
 // import * as signalR from '@microsoft/signalr';
-// import { Message, addMessage, addMessages } from "../Redux/Store/messageSlice";
-// import Modal from 'react-modal';
-// import { persistor } from "../Redux/Store/store";
-// import { removeDuplicateMessages } from "../Redux/Store/messageSlice";
-// interface MessageListProps {
-//   currentConversationId?: string;
-// }
+// import { Message, addMessages } from "../Redux/Store/messageSlice";
+// import { useParams } from 'react-router-dom';
+// import { signalRService } from "../Redux/Services/signalRService";
+// import { get, keys, set } from "idb-keyval";
 
-// const MessageList: React.FC<MessageListProps> = ({ currentConversationId }) => {
+// const MessageList = ({ currentConversationId }: any) => {
 //   const messages = useSelector((state: any) => state.message.messages);
+//   const { conversationId } = useParams<{ conversationId: string | undefined }>();
 //   const dispatch = useDispatch();
 //   const [hubConnection, setHubConnection] = useState<signalR.HubConnection | null>(null);
 
-//   const handleRemoveDuplicates = () => {
-//     dispatch(removeDuplicateMessages());
-//   };
+//   const [newMessages, setNewMessages] = useState<Message[]>([]);
+//   const [latestMessage, setLatestMessage] = useState<Message | null>(null);
 
 //   useEffect(() => {
-//     const startSignalRConnection = async () => {
-//       const hubConnect = new signalR.HubConnectionBuilder()
-//         .withUrl("http://192.168.1.80:5129/notificationhub", {
-//           skipNegotiation: true,
-//           transport: signalR.HttpTransportType.WebSockets
-//         })
-//         .withAutomaticReconnect()
-//         .configureLogging(signalR.LogLevel.Debug)
-//         .build();
-  
-//       let intervalId: NodeJS.Timeout;
-  
-//       hubConnect.onreconnected(async (connectionId) => {
-//         console.log(`Connection re-established. Connected with connectionId "${connectionId}".`);
-//         await hubConnect.invoke("SubscribeToConversation", currentConversationId ?? '');
-//       });
-//       hubConnect.on('receivelatestmessages', (incomingMessages: Message[]) => {
-//         console.log('Received latest messages:', incomingMessages);
-//         const latestMessage = incomingMessages[incomingMessages.length - 1];
-//         if (latestMessage) {
-//           dispatch(addMessage(latestMessage));
-//         }
-//       });
-//       hubConnect.on('userconnected', (connectionId: string) => {
-//         console.log('User connected:', connectionId);
-//       });
-  
-//       try {
-//         await hubConnect.start();
-//         console.log('SignalR connection established');
-//         await hubConnect.invoke("SubscribeToConversation", currentConversationId ?? '');
-//         intervalId = setInterval(async () => {
-//           await hubConnect.invoke("SubscribeToConversation", currentConversationId ?? '');
-//         }, 5000);
-//       } catch (error) {
-//         console.error('Error while establishing SignalR connection:', error);
+//     // Retrieve the messages from IndexedDB and dispatch them to addMessages
+//     keys().then(async (keys) => {
+//       keys.sort();
+//       for (const key of keys) {
+//         const message = await get(key);
+//         dispatch(addMessages([message]));
 //       }
+//     });
+
+//     // Rest of your initialization code...
+//   }, [dispatch]);
+
   
-//       setHubConnection(hubConnect);
-  
-//       return () => {
-//         hubConnection?.stop().catch(err => console.error("Error while stopping SignalR connection: " + err));
-//         clearInterval(intervalId);
-//       };
-//     };
-  
-//     startSignalRConnection();
-//   }, [currentConversationId, dispatch, messages.length]);
 
 //   useEffect(() => {
-//     console.log("Messages from Redux store:", messages);
-//   }, [messages]);
+//     console.log('Current conversationId:', conversationId);
+
+//     if (conversationId !== undefined) {
+//       signalRService.startConnection(conversationId).then(() => {
+//         signalRService.subscribeToConversation(conversationId);
+
+//         signalRService.registerReceiveLatestMessages(async (incomingMessages) => {
+//           console.log('Received latest messages from messagelist:', incomingMessages);
+
+
+//           let latestMessageObject;
+
+//           if (typeof incomingMessages === 'string') {
+//             // If incomingMessages is a string, create a new message object with default values
+//             latestMessageObject = {
+//               conversationId: conversationId,
+//               message: incomingMessages,
+//               messageContent: incomingMessages,
+//               senderName: latestMessage?.senderName, // Use a default value for senderName
+//               // Set other properties as needed
+//             };
+//           } else if (typeof incomingMessages === 'object') {
+//             // If incomingMessages is an object, use it as the latest message object
+//             latestMessageObject = incomingMessages;
+//           }
+
+//           if (latestMessageObject) {
+//             if (Array.isArray(latestMessageObject)) {
+//               setLatestMessage(latestMessageObject[0]);
+//             } else {
+//               setLatestMessage(latestMessageObject);
+//             }
+//           }
+
+
+//         });
+//       });
+//     }
+//   }, [conversationId, dispatch, signalRService, messages]);
+
+//   useEffect(() => {
+//     console.log('Current conversationId:', conversationId);
+
+//     if (conversationId !== undefined) {
+//       signalRService.registerReceiveLatestMessages((incomingMessages) => {
+//         console.log('Received latest messages from messagelist:', incomingMessages);
+
+//         // Check if incomingMessages is an array and update local state
+//         setNewMessages(prevMessages => [...prevMessages, ...(Array.isArray(incomingMessages) ? incomingMessages : [incomingMessages])]);
+//       });
+//     }
+//   }, [conversationId]);
+
 
 //   return (
 //     <div>
-//         <button onClick={handleRemoveDuplicates}>Remove Duplicates</button>
+//       {/* Render the latest message separately */}
+//       {latestMessage &&
+//         <div>
+//           <p><strong>Sender:</strong> {latestMessage.senderName}</p>
+//           <p><strong>Message:</strong> {latestMessage.message}</p>
+//         </div>
+//       }
+
 //       <ul>
-//       {[...messages].sort((a: any, b: any) => new Date(b?.createdOn).getTime() - new Date(a?.createdOn).getTime())
-//   .map((message: any, index: any) => (
-//     message ? <li key={message.id}>{message.message}</li> : null
-// ))}
-//     </ul>
+//         {[...messages].sort((a: any, b: any) => new Date(b?.createdOn).getTime() - new Date(a?.createdOn).getTime())
+//           .map((message: any, index: any) => (
+//             message ? <li key={message.id}>
+//               <p><strong>Sender:</strong> {message.senderName}</p>
+//               <p><strong>Message:</strong> {message.message}</p>
+//             </li> : null
+//           ))}
+//       </ul>
 //     </div>
 //   );
-// };
+// }
 
 // export default MessageList;
+import React, { useState } from 'react';
+import { SendMessageProps, useMessages } from '../Messages/useMessages';
 
-import React, { useEffect, useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import * as signalR from '@microsoft/signalr';
-import { addMessages } from "../Redux/Store/messageSlice";
 import { useParams } from 'react-router-dom';
-const MessageList = ({ currentConversationId }: any) => {
-  const messages = useSelector((state: any) => state.message.messages);
-  const { conversationId } = useParams();
+import { Message, addMessage } from '../Redux/Store/messageSlice';
+import { useDispatch } from 'react-redux';
+
+const MessageList: React.FC<SendMessageProps> = ({ setCurrentConversationId }) => {
+  const { conversationId } = useParams<{ conversationId: string }>();
+  const { sendMessage: send, messages } = useMessages(conversationId ?? '');
+  const [messageContent, setMessageContent] = useState('');
   const dispatch = useDispatch();
-  const [hubConnection, setHubConnection] = useState<signalR.HubConnection | null>(null);
 
-  useEffect(() => {
-    console.log('current conversationid', conversationId)
-    const startSignalRConnection = async () => {
-      const hubConnect = new signalR.HubConnectionBuilder()
-        .withUrl("http://192.168.1.80:5129/notificationhub", {
-          skipNegotiation: true,
-          transport: signalR.HttpTransportType.WebSockets
-        })
-        .withAutomaticReconnect()
-        .configureLogging(signalR.LogLevel.Debug)
-        .build();
-        hubConnect.onreconnected(async (connectionId) => {
-                  console.log(`Connection re-established. Connected with connectionId "${connectionId}".`);
-                  await hubConnect.invoke("SubscribeToConversation", conversationId ?? '');
-                });
-                hubConnect.on("receivelatestmessages", (incomingMessages) => {
-                  try {
-                    console.log('Received latest messages from messagelist:', incomingMessages);
-                    console.log('Message id from messagelist:', incomingMessages.jobAssigneeMessageId);
-                    console.log('Created on dates:', incomingMessages.map((message: any) => message.createdOn)); // Add this line
-                    dispatch(addMessages(incomingMessages)); // No need to parse with JSON.parse
-                  } catch (error) {
-                    console.error('Error parsing incoming messages:', error);
-                  }
-                });
-      hubConnect.onclose((error) => {
-        console.error("SignalR connection closed", error);
-      });
+  const sendMessage = async () => {
+    if (messageContent) {
+      await send(messageContent);
 
-      try {
-        await hubConnect.start();
-        console.log('SignalR connection established');
-        await hubConnect.invoke("SubscribeToConversation", conversationId ?? '');
-      } catch (error) {
-        console.error('Error while establishing SignalR connection:', error);
+      const myMessage: Message = {
+        conversationId: conversationId ?? '',
+        messageContent: messageContent,
+        message: messageContent,
+      //  senderName: latestMessage?.senderName
       }
 
-      setHubConnection(hubConnect);
-
-      return () => {
-        hubConnect.stop().catch(err => console.error("Error while stopping SignalR connection: " + err));
-      };
-    };
-
-    if (conversationId) {
-      startSignalRConnection();
+      dispatch(addMessage(myMessage));
+      setMessageContent('');
     }
-
-    // Clean up on component unmount or conversationId change
-    return () => {
-      hubConnection?.stop().catch(err => console.error("Error while stopping SignalR connection: " + err));
-    };
-  }, [conversationId, dispatch]);
+  };
 
   return (
     <div>
-      <ul>
-      {[...messages].sort((a: any, b: any) => new Date(b?.createdOn).getTime() - new Date(a?.createdOn).getTime())
-  .map((message: any, index: any) => (
-    message ? <li key={message.id}>
-      <p><strong>Sender:</strong> {message.senderName}</p>
-      <p><strong>Message:</strong> {message.message}</p>
-    </li> : null
-  ))}
-      </ul>
+      {/* Display the messages */}
+      {messages.map((message, index) =>
+        <div key={index}>
+          <p><strong>Sender:</strong> {message.senderName}</p>
+          <p><strong>Message:</strong> {message.messageContent}</p>
+        </div>
+      )}
+  
+      {/* Input field to send a new message */}
+      <input 
+        type="text" 
+        value={messageContent} 
+        onChange={(e) => setMessageContent(e.target.value)} 
+      />
+      <button onClick={sendMessage}>Send Message</button>
     </div>
   );
-}
+      }
 
 export default MessageList;
